@@ -1,5 +1,6 @@
 # csharp-xsd-class-generator
 Convert xsd to cs classes can be serialized/deserialized to xml.
+
 Valid xml for specified xsd can be loaded to object, object can be saved as xml.
 
 ## How to use
@@ -66,6 +67,16 @@ There is sample xsd schema (included in project):
    </xs:complexType>
    <xs:element name="Root" type="RootType" />
 </xs:schema>
+```
+
+create instruction for ClassGenerator (see Program.cs):
+```cs
+var opt = new XsdContentReaderOptions();
+opt.CSharpNamespace = "SampleService";
+opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd" });
+
+var reader = new XsdContentReader();
+var content = reader.GenerateClasses(opt);
 ```
 
 it will output to class:
