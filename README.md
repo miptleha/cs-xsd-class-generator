@@ -73,7 +73,7 @@ create instruction for ClassGenerator (see Program.cs):
 ```cs
 var opt = new XsdContentReaderOptions();
 opt.CSharpNamespace = "SampleService";
-opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd" });
+opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd", ShortNamespace = "Test" });
 
 var reader = new XsdContentReader();
 var content = reader.GenerateClasses(opt);
@@ -118,11 +118,11 @@ namespace SampleService.AF.Kps
             var r = new XElement(name);
 
             foreach (var i in empty)
-                r.Add(new XElement(ns.nms + "empty", i));
-            r.Add(new XElement(ns.nms + "StringElement1", StringElement1));
-            r.Add(new XElement(ns.nms + "StringElement2", StringElement2));
-            r.Add(new XElement(ns.nms + "StringElement3", StringElement3));
-            r.Add(StringWithAttr.ToXElement(ns.nms + "StringWithAttr", ns));
+                r.Add(new XElement(ns.Test + "empty", i));
+            r.Add(new XElement(ns.Test + "StringElement1", StringElement1));
+            r.Add(new XElement(ns.Test + "StringElement2", StringElement2));
+            r.Add(new XElement(ns.Test + "StringElement3", StringElement3));
+            r.Add(StringWithAttr.ToXElement(ns.Test + "StringWithAttr", ns));
 
             return r;
         }

@@ -19,7 +19,7 @@ namespace ClassGenerator
 
                 opt.CSharpNamespace = "SampleService";
 
-                opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd" });
+                opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd", ShortNamespace = "Test" });
 
                 var reader = new XsdContentReader();
                 var content = reader.GenerateClasses(opt);
