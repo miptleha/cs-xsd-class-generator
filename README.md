@@ -77,6 +77,8 @@ There is sample xsd schema (included in project):
 create instruction for ClassGenerator (see Program.cs):
 ```cs
 var opt = new XsdContentReaderOptions();
+opt.StoreDB = true;
+opt.StoreDBPrefix = "a";
 opt.CSharpNamespace = "SampleService";
 opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd", ShortNamespace = "Test" });
 
@@ -86,15 +88,16 @@ var content = reader.GenerateClasses(opt);
 
 it will output to class:
 ```cs
-using SampleService.Xml;
+using Xml;
 using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
+using QueryGenerator;
 
 namespace SampleService.AF.Kps
 {
     //
-    class RootType : IXml
+    public class RootType : IXml, IQObject
     {
         private List<string> _empty = new List<string>();
         private string _StringWithAttr = new string();
@@ -131,6 +134,24 @@ namespace SampleService.AF.Kps
 
             return r;
         }
+
+        public void StoreInfo(QData data)
+        {
+            var qt = new QTable { Name = "a_Tes", Comment = "", Pk = "Id", PkComment = "Id" };
+            RootType.StoreInfo(qt, null, "", null, "a_Tes_", null, data);
+        }
+
+        internal static void StoreInfo(QTable qt, QHierarchy h, string prefix, string comment, string tab_prefix, string tab_comment, QData data)
+        {
+            var prf = (prefix != null && prefix.Length > 10 ? prefix.Substring(0, 5) + prefix.Substring(prefix.Length - 5) : prefix);
+            data.AddInfo(qt, h,
+                new QField { Name = "StringElement1", Type = QType.String, Size = 20, Prefix = prf, Comment = (comment != null ? comment + ": " : "") + "" },
+                new QField { Name = "StringElement2", Type = QType.String, Size = 100, Prefix = prf, Comment = (comment != null ? comment + ": " : "") + "" },
+                new QField { Name = "StringElement3", Type = QType.String, Size = 100, Prefix = prf, Comment = (comment != null ? comment + ": " : "") + "" });
+
+            string.StoreInfo(qt, new QHierarchy("StringWithAttr", QHType.Member, h), prefix + "SWA", (comment != null ? comment + ": " : "") + "", tab_prefix + "SWA", (tab_comment != null ? tab_comment + ": " : "") + "", data);
+        }
     }
+
 }
 ```
