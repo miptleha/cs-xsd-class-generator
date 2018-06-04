@@ -1,5 +1,6 @@
 ﻿using Log;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,11 +28,13 @@ namespace ClassGenerator.Generator
 
         ILog log;
         bool wasParent, wasVar, wasList, wasItem, wasLong;
-        StringBuilder pr, pu, fx, tx;
+        StringBuilder pr, pu, fx, tx, si, si1, si2, si3;
         Dictionary<string, XmlSchemaSimpleType> simpleTypes;
         Dictionary<string, XmlSchemaComplexType> complexTypes;
         Dictionary<string, List<XmlSchemaComplexType>> listComplexTypes;
         Dictionary<string, string> sameTypes;
+        Dictionary<string, bool> tblList;
+        Dictionary<string, bool> fldList;
 
         public List<string> GenerateClasses(XsdContentReaderOptions opt)
         {
@@ -65,6 +68,8 @@ namespace ClassGenerator.Generator
             complexTypes = new Dictionary<string, XmlSchemaComplexType>();
             listComplexTypes = new Dictionary<string, List<XmlSchemaComplexType>>();
             sameTypes = new Dictionary<string, string>();
+            var rootTypes = new Dictionary<string, bool>();
+            tblList = new Dictionary<string, bool>();
 
             foreach (XmlSchema schema in ss.Schemas())
             {
@@ -74,6 +79,12 @@ namespace ClassGenerator.Generator
                 else
                     list = listComplexTypes[schema.TargetNamespace];
 
+                foreach (DictionaryEntry sce in schema.Elements)
+                {
+                    var xse = (XmlSchemaElement)sce.Value;
+                    rootTypes.Add(xse.SchemaTypeName.ToString(), true);
+                }
+
                 foreach (XmlSchemaType type in schema.SchemaTypes.Values)
                 {
                     if (type is XmlSchemaComplexType)
@@ -82,8 +93,7 @@ namespace ClassGenerator.Generator
                         complexTypes.Add(ct.QualifiedName.ToString(), ct);
                         list.Add(ct);
                     }
-
-                    if (type is XmlSchemaSimpleType)
+                    else if (type is XmlSchemaSimpleType)
                     {
                         XmlSchemaSimpleType st = type as XmlSchemaSimpleType;
                         simpleTypes.Add(st.QualifiedName.ToString(), st);
@@ -142,17 +152,19 @@ namespace ClassGenerator.Generator
                 var sb = new StringBuilder();
                 sb.Append("\n\n *** " + ns + " *** \n\n");
                 sb.Append(@"
-using " + namesp + @".Xml;
+using Xml;
 using System;
 using System.Collections.Generic;
-using System.Xml.Linq;
+using System.Xml.Linq;" +
+(opt.StoreDB ? "\nusing QueryGenerator;" : "") +
+@"
 
 namespace " + namesp + @".AF.Kps
 {");
                 foreach (var ct in listComplexTypes[ns])
                 {
                     sb.Append("\n" + S1 + "//" + getAnnotation(ct.Annotation) + "\n");
-                    sb.Append(S1 + "class " + className(ct) + " : ");
+                    sb.Append(S1 + "public class " + className(ct) + " : ");
                     var ignoredNames = new Dictionary<string, bool>();
                     wasParent = false;
                     if (ct.BaseXmlSchemaType.QualifiedName.ToString() != "http://www.w3.org/2001/XMLSchema:anyType")
@@ -161,7 +173,8 @@ namespace " + namesp + @".AF.Kps
                         getIgnoredNames(ct.QualifiedName.ToString(), ignoredNames);
                         wasParent = true;
                     }
-                    sb.Append("IXml\n" + S1 + "{");
+                    bool rootType = rootTypes.ContainsKey(ct.QualifiedName.ToString());
+                    sb.Append("IXml" + (rootType && opt.StoreDB ? ", IQObject" : "") + "\n" + S1 + "{");
 
                     var particle = ct.ContentTypeParticle;
                     if (particle.ToString().EndsWith("EmptyParticle") || particle is XmlSchemaGroupBase)
@@ -173,6 +186,11 @@ namespace " + namesp + @".AF.Kps
                         pu = new StringBuilder();
                         fx = new StringBuilder();
                         tx = new StringBuilder();
+                        si = new StringBuilder();
+                        si1 = new StringBuilder();
+                        si2 = new StringBuilder();
+                        si3 = new StringBuilder();
+                        fldList = new Dictionary<string, bool>();
 
                         fx.Append(S + "public " + (wasParent ? "new " : "") + "void Init(XElement r)\n" + S + "{\n");
                         if (wasParent)
@@ -182,6 +200,16 @@ namespace " + namesp + @".AF.Kps
                             tx.Append(S2 + "var r = base.ToXElement(name, ns);\n\n");
                         else
                             tx.Append(S2 + "var r = new XElement(name);\n\n");
+
+                        if (rootType && opt.StoreDB)
+                        {
+                            si.Append(S + "public void StoreInfo(QData data)\n" + S + "{\n");
+                            var cmt = getAnnotation(ct.Annotation).Replace("'", "\"").Replace("\"", "\\\"");
+                            si.Append(S2 + "var qt = new QTable { Name = \"" + opt.StoreDBPrefix + "_" + shortName(prefix2) + "\", Comment = \"" + cmt + "\", Pk = \"Id\", PkComment = \"Id\" };\n");
+                            si.Append(S2 + className(ct) + ".StoreInfo(qt, null, \"\", null, \"" + opt.StoreDBPrefix + "_" + shortName(prefix2) + "_\", null, data);\n" + S + "}\n\n");
+                        }
+
+                        si.Append(S + "internal static " + (wasParent ? "new " : "") + "void StoreInfo(QTable qt, QHierarchy h, string prefix, string comment, string tab_prefix, string tab_comment, QData data)\n" + S + "{\n");
 
                         wasVar = false;
                         wasList = false;
@@ -217,6 +245,20 @@ namespace " + namesp + @".AF.Kps
                         fx.Append(S + "}\n");
                         tx.Append("\n" + S2 + "return r;\n" + S + "}\n");
 
+                        string si1_str = "data.AddInfo(qt, h);\n";
+                        if (si1.Length > 1)
+                        {
+                            si1.Length = si1.Length - 2;
+                            si1_str = "var prf = (prefix != null && prefix.Length > 10 ? prefix.Substring(0, 5) + prefix.Substring(prefix.Length - 5) : prefix);\n";
+                            si1_str += S2 + "data.AddInfo(qt, h,\n" + si1.ToString() + ");\n";
+                        }
+                        if (wasParent)
+                            si1_str += S2 + className(ct.BaseXmlSchemaType) + ".StoreInfo(qt, h, prefix, comment, tab_prefix, tab_comment, data);\n";
+                        si1_str += "\n";
+                        string si_str = S2 + si1_str + si2.ToString() + "\n" + si3.ToString();
+                        si_str = si_str.TrimEnd(' ', '\n');
+                        si.Append(si_str + "\n" + S + "}\n");
+
                         sb.Append(pr);
                         if (pr.Length > 0)
                             sb.Append("\n");
@@ -230,6 +272,12 @@ namespace " + namesp + @".AF.Kps
                         sb.Append(fx);
                         sb.Append("\n");
                         sb.Append(tx);
+
+                        if (opt.StoreDB)
+                        {
+                            sb.Append("\n");
+                            sb.Append(si);
+                        }
                     }
 
                     sb.Append(S1 + "}\n");
@@ -239,8 +287,20 @@ namespace " + namesp + @".AF.Kps
 
                 string path = Path.Combine(gDir, fileSet[ns]);
                 log.Debug("write content to " + path + " file");
-                using (StreamWriter sw = new StreamWriter(path, false, Encoding.UTF8))
-                    sw.Write(sb.ToString().Substring(sb.ToString().IndexOf("using ")));
+                for (int j = 0; j < 10; j++)
+                {
+                    try
+                    {
+                        using (StreamWriter sw = new StreamWriter(path, false, Encoding.UTF8))
+                            sw.Write(sb.ToString().Substring(sb.ToString().IndexOf("using ")));
+                    }
+                    catch (Exception)
+                    {
+                        System.Threading.Thread.Sleep(500); //wait for file close from another process
+                        continue;
+                    }
+                    break;
+                }
             }
             return res;
         }
@@ -272,53 +332,65 @@ namespace " + namesp + @".AF.Kps
                         continue;
                     if (wasLong)
                         fx.Append("\n");
+                    var cmt = getAnnotation(elem.Annotation).Replace("'", "\"").Replace("\"", "\\\"");
+                    var ename = elem.Name.Replace('-', '_');
+
+                    var enameS = shortName(ename);
+
+                    var enameO = elem.Name;
                     if (complexTypes.ContainsKey(elem.SchemaTypeName.ToString()) || elem.ElementSchemaType is XmlSchemaComplexType)
                     {
                         var type = (XmlSchemaComplexType)elem.ElementSchemaType ?? complexTypes[elem.SchemaTypeName.ToString()];
                         var typeName = className(type) ?? fixBaseType(type.Datatype.ValueType.Name);
+                        var typeName2 = typeName;
+                        if (typeName2.EndsWith("Type"))
+                            typeName2 = typeName2.Substring(0, typeName2.Length - 4);
                         if (elem.MaxOccurs > 1)
                         {
-                            pr.Append(S + "private List<" + typeName + "> " + uname(elem.Name) + " = new List<" + typeName + ">();\n");
-                            pu.Append(S + "public List<" + typeName + "> " + elem.Name + " { get { return " + uname(elem.Name) + "; } } //");
+                            si3.Append(S2 + typeName + ".StoreInfo(new QTable { Name = (tab_prefix.Length > 23 ? tab_prefix.Substring(0, 23) : tab_prefix) + \"" + (enameS.Length > 3 ? enameS.Substring(0, 3) : enameS) + "\", Comment = (tab_comment != null ? tab_comment + \": \" : \"\") + \"" + cmt + "\", Pk = \"Id\", PkComment = \"Id\", Fk = \"IdFk\", FkComment = \"Id parent\" },\n");
+                            si3.Append(S3 + "new QHierarchy(\"" + ename + "\", QHType.List, h), null, null, tab_prefix + \"" + enameS + "\", (tab_comment != null ? tab_comment + \": \" : \"\") + \"" + cmt + "\", data);\n");
+                            pr.Append(S + "private List<" + typeName + "> " + uname(ename) + " = new List<" + typeName + ">();\n");
+                            pu.Append(S + "public List<" + typeName + "> " + ename + " { get { return " + uname(ename) + "; } } //");
 
                             if (wasItem && !wasLong)
                                 fx.Append("\n");
-                            fx.Append(S2 + elem.Name + ".Clear();\n");
-                            fx.Append(S2 + (wasList ? "" : "var ") + "list = XmlParser.Elements(r, \"" + elem.Name + "\");\n");
+                            fx.Append(S2 + ename + ".Clear();\n");
+                            fx.Append(S2 + (wasList ? "" : "var ") + "list = XmlParser.Elements(r, \"" + enameO + "\");\n");
                             wasList = true;
                             fx.Append(S2 + "foreach (var i in list)\n" + S2 + "{\n");
                             fx.Append(S3 + "var o = new " + typeName + "();\n");
                             fx.Append(S3 + "o.Init(i);\n");
-                            fx.Append(S3 + elem.Name + ".Add(o);\n" + S2 + "}\n");
+                            fx.Append(S3 + ename + ".Add(o);\n" + S2 + "}\n");
                             wasLong = true;
 
-                            tx.Append(S2 + "foreach (var i in " + elem.Name + ")\n");
-                            tx.Append(S3 + "r.Add(i.ToXElement(" + prefix + " + \"" + elem.Name + "\", ns));\n");
+                            tx.Append(S2 + "foreach (var i in " + ename + ")\n");
+                            tx.Append(S3 + "r.Add(i.ToXElement(" + prefix + " + \"" + enameO + "\", ns));\n");
                         }
                         else
                         {
+                            si2.Append(S2 + typeName + ".StoreInfo(qt, new QHierarchy(\"" + ename + "\", QHType.Member, h), prefix + \"" + enameS + "\", (comment != null ? comment + \": \" : \"\") + \"" + cmt + "\", tab_prefix + \"" + enameS + "\", (tab_comment != null ? tab_comment + \": \" : \"\") + \"" + cmt + "\", data);\n");
                             if (elem.MinOccurs == 0 || isChoice)
                             {
-                                pu.Append(S + "public " + typeName + " " + elem.Name + " { get; set; } //");
+                                pu.Append(S + "public " + typeName + " " + ename + " { get; set; } //");
 
                                 if (wasItem && !wasLong)
                                     fx.Append("\n");
-                                fx.Append(S2 + (wasVar ? "" : "var ") + "e = XmlParser.Element(r, \"" + elem.Name + "\", false);\n");
+                                fx.Append(S2 + (wasVar ? "" : "var ") + "e = XmlParser.Element(r, \"" + enameO + "\", false);\n");
                                 wasVar = true;
                                 fx.Append(S2 + "if (e != null)\n" + S2 + "{\n");
-                                fx.Append(S3 + elem.Name + " = new " + typeName + "();\n");
-                                fx.Append(S3 + elem.Name + ".Init(e);\n" + S2 + "}\n");
+                                fx.Append(S3 + ename + " = new " + typeName + "();\n");
+                                fx.Append(S3 + ename + ".Init(e);\n" + S2 + "}\n");
                                 wasLong = true;
 
-                                tx.Append(S2 + "if (" + elem.Name + " != null)\n");
-                                tx.Append(S3 + "r.Add(" + elem.Name + ".ToXElement(" + prefix + " + \"" + elem.Name + "\", ns));\n");
+                                tx.Append(S2 + "if (" + ename + " != null)\n");
+                                tx.Append(S3 + "r.Add(" + ename + ".ToXElement(" + prefix + " + \"" + enameO + "\", ns));\n");
                             }
                             else if (elem.MinOccurs == 1)
                             {
-                                pr.Append(S + "private " + typeName + " " + uname(elem.Name) + " = new " + typeName + "();\n");
-                                pu.Append(S + "public " + typeName + " " + elem.Name + " { get { return " + uname(elem.Name) + "; } } //");
-                                fx.Append(S2 + elem.Name + ".Init(XmlParser.Element(r, \"" + elem.Name + "\"));\n");
-                                tx.Append(S2 + "r.Add(" + elem.Name + ".ToXElement(" + prefix + " + \"" + elem.Name + "\", ns));\n");
+                                pr.Append(S + "private " + typeName + " " + uname(ename) + " = new " + typeName + "();\n");
+                                pu.Append(S + "public " + typeName + " " + ename + " { get { return " + uname(ename) + "; } } //");
+                                fx.Append(S2 + ename + ".Init(XmlParser.Element(r, \"" + enameO + "\"));\n");
+                                tx.Append(S2 + "r.Add(" + ename + ".ToXElement(" + prefix + " + \"" + enameO + "\", ns));\n");
                                 wasLong = false;
                             }
                         }
@@ -330,87 +402,104 @@ namespace " + namesp + @".AF.Kps
                     else if (simpleTypes.ContainsKey(elem.SchemaTypeName.ToString()) || elem.ElementSchemaType is XmlSchemaSimpleType)
                     {
                         var type = (XmlSchemaSimpleType)elem.ElementSchemaType ?? simpleTypes[elem.SchemaTypeName.ToString()];
-                        if (elem.Name == "RecvDateTime")
-                            pr.Append("");
                         var info = getSimpleTypeInfo(type);
                         if (elem.MaxOccurs > 1)
                         {
-                            pr.Append(S + "private List<" + info.BaseType + "> " + uname(elem.Name) + " = new List<" + info.BaseType + ">();\n");
-                            pu.Append(S + "public List<" + info.BaseType + "> " + elem.Name + " { get { return " + uname(elem.Name) + "; } } //");
+                            pr.Append(S + "private List<" + info.BaseType + "> " + uname(ename) + " = new List<" + info.BaseType + ">();\n");
+                            pu.Append(S + "public List<" + info.BaseType + "> " + ename + " { get { return " + uname(ename) + "; } } //");
 
                             if (info.BaseType == "string")
                             {
                                 if (wasItem && !wasLong)
                                     fx.Append("\n");
-                                fx.Append(S2 + elem.Name + ".Clear();\n");
-                                fx.Append(S2 + (wasList ? "" : "var ") + "list = XmlParser.Elements(r, \"" + elem.Name + "\");\n");
+                                fx.Append(S2 + ename + ".Clear();\n");
+                                fx.Append(S2 + (wasList ? "" : "var ") + "list = XmlParser.Elements(r, \"" + enameO + "\");\n");
                                 wasList = true;
                                 fx.Append(S2 + "foreach (var i in list)\n");
-                                fx.Append(S3 + elem.Name + ".Add(i.Value);\n");
+                                fx.Append(S3 + ename + ".Add(i.Value);\n");
                                 wasLong = true;
 
-                                tx.Append(S2 + "foreach (var i in " + elem.Name + ")\n");
-                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", i));\n");
+                                tx.Append(S2 + "foreach (var i in " + ename + ")\n");
+                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", i));\n");
                             }
                         }
                         else
                         {
                             string baseType = info.BaseType;
+                            string qType = "String";
+                            int maxLen = info.MaxLen;
                             if (elem.MinOccurs == 0 || isChoice)
                             {
                                 if (info.BaseType == "string")
                                 {
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValue(r, \"" + elem.Name + "\", false);\n");
-                                    tx.Append(S2 + "if (!string.IsNullOrEmpty(" + elem.Name + "))\n");
-                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", " + elem.Name + "));\n");
+                                    if (maxLen == -1)
+                                        maxLen = 100;
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValue(r, \"" + enameO + "\", false);\n");
+                                    tx.Append(S2 + "if (!string.IsNullOrEmpty(" + ename + "))\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
                                 else if (info.BaseType == "DateTime")
                                 {
+                                    qType = "Date";
                                     baseType += "?";
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValueDateNull(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "if (" + elem.Name + " != null)\n");
-                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + elem.Name + ".Value)));\n");
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValueDateNull(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "if (" + ename + " != null)\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + ename + ".Value)));\n");
                                 }
                                 else if (info.BaseType == "decimal")
                                 {
+                                    qType = "Number";
                                     baseType += "?";
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValueDecimalNull(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "if (" + elem.Name + " != null)\n");
-                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", XmlParser.Decimal2Str(" + elem.Name + ".Value)));\n");
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValueDecimalNull(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "if (" + ename + " != null)\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ".Value)));\n");
                                 }
                                 else if (info.BaseType == "bool")
                                 {
                                     baseType = "string";
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValueBool(r, \"" + elem.Name + "\", false);\n");
-                                    tx.Append(S2 + "if (!string.IsNullOrEmpty(" + elem.Name + "))\n");
-                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", " + elem.Name + "));\n");
+                                    maxLen = 1;
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\", false);\n");
+                                    tx.Append(S2 + "if (!string.IsNullOrEmpty(" + ename + "))\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
                             }
                             else if (elem.MinOccurs == 1)
                             {
                                 if (info.BaseType == "string")
                                 {
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValue(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", " + elem.Name + "));\n");
+                                    if (maxLen == -1)
+                                        maxLen = 100;
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValue(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
                                 else if (info.BaseType == "DateTime")
                                 {
-                                    fx.Append(S2 + elem.Name + " = (DateTime)XmlParser.Element(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + elem.Name + ")));\n");
+                                    qType = "Date";
+                                    fx.Append(S2 + ename + " = (DateTime)XmlParser.Element(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + ename + ")));\n");
                                 }
                                 else if (info.BaseType == "decimal")
                                 {
-                                    fx.Append(S2 + elem.Name + " = (decimal)XmlParser.Element(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", XmlParser.Decimal2Str(" + elem.Name + ")));\n");
+                                    qType = "Number";
+                                    fx.Append(S2 + ename + " = (decimal)XmlParser.Element(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ")));\n");
                                 }
                                 else if (info.BaseType == "bool")
                                 {
                                     baseType = "string";
-                                    fx.Append(S2 + elem.Name + " = XmlParser.ElementValueBool(r, \"" + elem.Name + "\");\n");
-                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + elem.Name + "\", " + elem.Name + "));\n");
+                                    info.MaxLen = 1;
+                                    fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\");\n");
+                                    tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
                             }
-                            pu.Append(S + "public " + baseType + " " + elem.Name + " { get; set; } //");
+
+                            string enameF = ename;
+                            if (enameF.Length > 15)
+                                enameF = shortName(ename);
+                            enameF = prohibNames(enameF);
+                            enameF = uniqueName(enameF, fldList);
+                            si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") +", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = prf, Comment = (comment != null ? comment + \": \" : \"\") + \"" + cmt + "\" },\n");
+                            pu.Append(S + "public " + baseType + " " + ename + " { get; set; } //");
                             wasLong = false;
                         }
                         if (elem.MinOccurs == 0)
@@ -430,7 +519,48 @@ namespace " + namesp + @".AF.Kps
                     pu.Append(getAnnotation(elem.Annotation) + "\n");
                 }
             }
+        }
 
+        private string prohibNames(string enameF)
+        {
+            var enameF1 = enameF.ToLower();
+            if (enameF1 == "level")
+                enameF = "Lvl";
+            else if (enameF1 == "number")
+                enameF = "Num";
+            else if (enameF1 == "id")
+                enameF = "Idt";
+            else if (enameF1 == "fkid")
+                enameF = "FkIdt";
+            else if (enameF1 == "on")
+                enameF = "ONf";
+            else if (enameF1 == "share")
+                enameF = "Shar";
+            return enameF;
+        }
+
+        private string shortName(string ename)
+        {
+            var enameS = "";
+            foreach (var c in ename)
+            {
+                if (c.ToString() == c.ToString().ToUpper())
+                    enameS += c.ToString();
+            }
+            if (enameS.Length < 2 && ename.Length > 2)
+                enameS = ename.Substring(0, 3);
+
+            return enameS;
+        }
+
+        private string uniqueName(string tab, Dictionary<string, bool> dict)
+        {
+            string tab1 = tab;
+            for (int i = 1; i < 10 && dict.ContainsKey(tab1.ToLower()); i++)
+                tab1 = tab + i.ToString();
+            dict.Add(tab1.ToLower(), true);
+
+            return tab1;
         }
 
         private string className(XmlSchemaType type)
@@ -609,9 +739,11 @@ namespace " + namesp + @".AF.Kps
                     }
                 }
             }
-            str = str.Replace('\n', ' ');
+            str = str.Replace('\n', ' ').Replace('\t', ' ');
             while (str.IndexOf("  ") != -1)
                 str = str.Replace("  ", " ");
+            if (str.EndsWith(" "))
+                str = str.Substring(0, str.Length - 1);
             return str;
         }
     }

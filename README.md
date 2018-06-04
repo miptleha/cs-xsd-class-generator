@@ -3,6 +3,11 @@ Convert xsd to cs classes can be serialized/deserialized to xml.
 
 Valid xml for specified xsd can be loaded to object, object can be saved as xml.
 
+Generates classes:
+1. With properties types and names from xsd
+2. Methods for load/save object from xml (IXml interface)
+3. Optional method for generate DB in [QueryGenerator](https://github.com/miptleha/csharp-query-generator) (StoreDB option)
+
 ## How to use
 -   put your xsd schemas to bin\Debug folder (in root or in subfolder)
 -   describe them in Program.cs file (see Sample section)

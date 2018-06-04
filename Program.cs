@@ -16,6 +16,8 @@ namespace ClassGenerator
                 log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
                 var opt = new XsdContentReaderOptions();
+                opt.StoreDB = true;
+                opt.StoreDBPrefix = "a";
 
                 opt.CSharpNamespace = "SampleService";
 
