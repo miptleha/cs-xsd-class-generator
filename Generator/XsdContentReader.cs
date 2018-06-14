@@ -296,6 +296,8 @@ namespace " + namesp + @".AF.Kps
                     }
                     catch (Exception)
                     {
+                        if (j == 9)
+                            throw;
                         System.Threading.Thread.Sleep(500); //wait for file close from another process
                         continue;
                     }
