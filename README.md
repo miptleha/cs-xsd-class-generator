@@ -1,4 +1,3 @@
-# csharp-xsd-class-generator
 Convert xsd to cs classes can be serialized/deserialized to xml.
 
 Valid xml for specified xsd can be loaded to object, object can be saved as xml.
