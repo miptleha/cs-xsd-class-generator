@@ -68,6 +68,7 @@ There is sample xsd schema (included in project):
 
 put some code in Program.cs:
 ```cs
+//see XsdContentReaderOptions class for more options
 var opt = new XsdContentReaderOptions();
 opt.StoreDB = true;
 opt.StoreDBPrefix = "a";
