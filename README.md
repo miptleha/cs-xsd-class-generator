@@ -4,8 +4,9 @@ Console application that converts xsd to cs classes. Generated classes have meth
 -   put your xsd schemas to bin\Debug folder (in root or in subfolder)
 -   describe them in Program.cs file (see Sample section)
 -   if some errors see log\ClassGenerator.log
--   all classes will be generated in code folder inside bin\Debug
--   to work with classes your will need helpers inside AF, Xml folder
+-   all classes will be generated inside bin\Debug\code folder
+-   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator folder
+-   note: fields generated only for elements, not for attributes
 
 ## Sample
 
@@ -68,6 +69,7 @@ There is sample xsd schema (included in project):
 
 put some code in Program.cs:
 ```cs
+//see XsdContentReaderOptions class for more options
 var opt = new XsdContentReaderOptions();
 opt.StoreDB = true;
 opt.StoreDBPrefix = "a";
@@ -78,7 +80,7 @@ var reader = new XsdContentReader();
 var content = reader.GenerateClasses(opt);
 ```
 
-it will output to class:
+run application, it will output to class:
 ```cs
 using Xml;
 using System;
@@ -145,5 +147,25 @@ namespace SampleService.AF.Kps
         }
     }
 
+    //
+    public class StringWithAttrType : IXml
+    {
+        public void Init(XElement r)
+        {
+        }
+
+        public XElement ToXElement(XName name, Namespaces ns)
+        {
+            var r = new XElement(name);
+
+
+            return r;
+        }
+
+        internal static void StoreInfo(QTable qt, QHierarchy h, string prefix, string comment, string tab_prefix, string tab_comment, QData data)
+        {
+            data.AddInfo(qt, h);
+        }
+    }
 }
 ```
