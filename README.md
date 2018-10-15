@@ -5,7 +5,7 @@ Console application that converts xsd to cs classes. Generated classes have meth
 -   describe them in Program.cs file (see Sample section)
 -   if some errors see log\ClassGenerator.log
 -   all classes will be generated inside bin\Debug\code folder
--   to work with classes your will need helpers inside AF, Xml folder
+-   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator folder
 -   note: fields generated only for elements, not for attributes
 
 ## Sample
