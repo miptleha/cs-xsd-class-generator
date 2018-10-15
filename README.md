@@ -1,10 +1,5 @@
 Console application that converts xsd to cs classes. Generated classes have methods to serialize/deserialize to xml.
 
-More detailed:
-1. With properties types and names from xsd
-2. Methods for load/save object from xml (IXml interface)
-3. Optional method for generate DB in [QueryGenerator](https://github.com/miptleha/cs-query-generator) (StoreDB option)
-
 ## How to use
 -   put your xsd schemas to bin\Debug folder (in root or in subfolder)
 -   describe them in Program.cs file (see Sample section)
