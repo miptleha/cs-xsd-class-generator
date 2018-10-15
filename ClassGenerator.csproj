@@ -71,6 +71,8 @@
     <Compile Include="Log\LogManager.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="QueryGenerator\IQObject.cs" />
+    <Compile Include="QueryGenerator\QData.cs" />
     <Compile Include="Xml\IXml.cs" />
     <Compile Include="Xml\XmlParser.cs" />
   </ItemGroup>

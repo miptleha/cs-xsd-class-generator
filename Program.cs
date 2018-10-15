@@ -12,9 +12,10 @@ namespace ClassGenerator
         {
             try
             {
-                LogManager.Init();
+                log4net.Config.XmlConfigurator.Configure();
                 log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 
+                //see XsdContentReaderOptions class for more options
                 var opt = new XsdContentReaderOptions();
                 opt.StoreDB = true;
                 opt.StoreDBPrefix = "a";

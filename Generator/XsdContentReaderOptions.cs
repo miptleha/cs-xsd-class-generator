@@ -26,9 +26,19 @@ namespace ClassGenerator.Generator
         public string StoreDBPrefix { get; set; }
 
         /// <summary>
+        /// Fields in DB with names as properties in classes
+        /// </summary>
+        public bool ExactDBNames { get; set; }
+
+        /// <summary>
         /// Set of schemas
         /// </summary>
         public List<XsdFileInfo> Files { get { return _files; } }
+
+        /// <summary>
+        /// Parse one file at a time, not as single set
+        /// </summary>
+        public bool FileByFile { get; set; }
     }
 
     class XsdFileInfo
