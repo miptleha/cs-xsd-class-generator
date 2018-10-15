@@ -80,7 +80,7 @@ var reader = new XsdContentReader();
 var content = reader.GenerateClasses(opt);
 ```
 
-it will output to class:
+run application, it will output to class:
 ```cs
 using Xml;
 using System;
