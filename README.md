@@ -66,7 +66,7 @@ There is sample xsd schema (included in project):
 </xs:schema>
 ```
 
-create instruction for ClassGenerator (see Program.cs):
+put some code in Program.cs:
 ```cs
 var opt = new XsdContentReaderOptions();
 opt.StoreDB = true;
