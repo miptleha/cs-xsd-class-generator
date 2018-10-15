@@ -1,8 +1,6 @@
-Convert xsd to cs classes can be serialized/deserialized to xml.
+Console application that converts xsd to cs classes. Generated classes have methods to serialize/deserialize to xml.
 
-Valid xml for specified xsd can be loaded to object, object can be saved as xml.
-
-Generates classes:
+More detailed:
 1. With properties types and names from xsd
 2. Methods for load/save object from xml (IXml interface)
 3. Optional method for generate DB in [QueryGenerator](https://github.com/miptleha/cs-query-generator) (StoreDB option)
