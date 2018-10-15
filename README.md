@@ -147,5 +147,28 @@ namespace SampleService.AF.Kps
         }
     }
 
+    //
+    public class StringWithAttrType : , IXml
+    {
+        public new void Init(XElement r)
+        {
+            base.Init(r);
+
+        }
+
+        public new XElement ToXElement(XName name, Namespaces ns)
+        {
+            var r = base.ToXElement(name, ns);
+
+
+            return r;
+        }
+
+        internal static new void StoreInfo(QTable qt, QHierarchy h, string prefix, string comment, string tab_prefix, string tab_comment, QData data)
+        {
+            data.AddInfo(qt, h);
+            .StoreInfo(qt, h, prefix, comment, tab_prefix, tab_comment, data);
+        }
+    }
 }
 ```
