@@ -7,7 +7,7 @@ Console application that converts xsd to cs classes. Generated classes have meth
 -   all classes will be generated in code folder inside bin\Debug
 -   to work with classes your will need helpers inside AF, Xml folder
 
-## Samples
+## Sample
 
 There is sample xsd schema (included in project):
 ```xsd
