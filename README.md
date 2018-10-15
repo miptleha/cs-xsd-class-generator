@@ -1,4 +1,4 @@
-Console application that converts xsd to cs classes. Generated classes have methods to serialize/deserialize to xml.
+Console application that converts xsd to cs classes. Generated classes have methods to serialize/deserialize to xml. Also generates methods for [Database generator](https://github.com/miptleha/cs-query-generator).
 
 ## How to use
 -   put your xsd schemas to bin\Debug folder (in root or in subfolder)
