@@ -5,7 +5,7 @@ Console application that converts xsd to cs classes. Generated classes have meth
 -   describe them in Program.cs file (see Sample section)
 -   if some errors see log\ClassGenerator.log
 -   all classes will be generated inside bin\Debug\code folder
--   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator folder
+-   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator, Db folder
 -   note: fields generated only for elements, not for attributes
 
 ## Sample
@@ -72,6 +72,7 @@ put some code in Program.cs:
 //see XsdContentReaderOptions class for more options
 var opt = new XsdContentReaderOptions();
 opt.StoreDB = true;
+opt.ReadDB = true;
 opt.StoreDBPrefix = "a";
 opt.CSharpNamespace = "SampleService";
 opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd", ShortNamespace = "Test" });
@@ -87,20 +88,30 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Linq;
 using QueryGenerator;
+using Db;
+using System.Data.Common;
 
 namespace SampleService.AF.Kps
 {
     //
-    public class RootType : IXml, IQObject
+    public class RootType : IXml, IRow, IQObject
     {
         private List<string> _empty = new List<string>();
-        private string _StringWithAttr = new string();
+        private StringWithAttrType _StringWithAttr = new StringWithAttrType();
 
         public List<string> empty { get { return _empty; } } //optional, 
         public string StringElement1 { get; set; } //maxLen: 20, 
         public string StringElement2 { get; set; } //
         public string StringElement3 { get; set; } //pattern: [A-Z]*, 
-        public string StringWithAttr { get { return _StringWithAttr; } } //
+        public StringWithAttrType StringWithAttr { get { return _StringWithAttr; } } //
+
+        public void Init(DbDataReader r, Dictionary<string, int> columns)
+        {
+            StringElement1 = Util.ToStr(r["StringElement1"]);
+            StringElement2 = Util.ToStr(r["StringElement2"]);
+            StringElement3 = Util.ToStr(r["StringElement3"]);
+            StringWithAttr.Init(r, columns);
+        }
 
         public void Init(XElement r)
         {
@@ -131,7 +142,7 @@ namespace SampleService.AF.Kps
 
         public void StoreInfo(QData data)
         {
-            var qt = new QTable { Name = "a_Tes", Comment = "", Pk = "Id", PkComment = "Id" };
+            var qt = new QTable { Name = "a_Tes", Comment = "", Pk = "Id", PkComment = "Идентификатор" };
             RootType.StoreInfo(qt, null, "", null, "a_Tes_", null, data);
         }
 
@@ -143,13 +154,17 @@ namespace SampleService.AF.Kps
                 new QField { Name = "StringElement2", Type = QType.String, Size = 100, Prefix = prf, Comment = (comment != null ? comment + ": " : "") + "" },
                 new QField { Name = "StringElement3", Type = QType.String, Size = 100, Prefix = prf, Comment = (comment != null ? comment + ": " : "") + "" });
 
-            string.StoreInfo(qt, new QHierarchy("StringWithAttr", QHType.Member, h), prefix + "SWA", (comment != null ? comment + ": " : "") + "", tab_prefix + "SWA", (tab_comment != null ? tab_comment + ": " : "") + "", data);
+            StringWithAttrType.StoreInfo(qt, new QHierarchy("StringWithAttr", QHType.Member, h), prefix + "SWA", (comment != null ? comment + ": " : "") + "", tab_prefix + "SWA", (tab_comment != null ? tab_comment + ": " : "") + "", data);
         }
     }
 
     //
-    public class StringWithAttrType : IXml
+    public class StringWithAttrType : IXml, IRow
     {
+        public void Init(DbDataReader r, Dictionary<string, int> columns)
+        {
+        }
+
         public void Init(XElement r)
         {
         }
@@ -157,8 +172,6 @@ namespace SampleService.AF.Kps
         public XElement ToXElement(XName name, Namespaces ns)
         {
             var r = new XElement(name);
-
-
             return r;
         }
 
