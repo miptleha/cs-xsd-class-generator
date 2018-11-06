@@ -27,8 +27,8 @@ namespace ClassGenerator.Generator
         }
 
         ILog log;
-        bool wasParent, wasVar, wasList, wasItem, wasLong;
-        StringBuilder pr, pu, fx, tx, si, si1, si2, si3;
+        bool wasParent, wasVar, wasList, wasItem, wasLong, wasLongB;
+        StringBuilder pr, pu, fb, fx, tx, si, si1, si2, si3;
         Dictionary<string, XmlSchemaSimpleType> simpleTypes;
         Dictionary<string, XmlSchemaComplexType> complexTypes;
         Dictionary<string, List<XmlSchemaComplexType>> listComplexTypes;
@@ -182,6 +182,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Linq;" +
 (opt.StoreDB ? "\nusing QueryGenerator;" : "") +
+(opt.ReadDB ? "\nusing Db;\nusing System.Data.Common;" : "") +
 @"
 
 namespace " + namesp + @".AF.Kps
@@ -207,7 +208,7 @@ namespace " + namesp + @".AF.Kps
                         getIgnoredNames(ct, ignoredNames);
                     }
                     bool rootType = rootTypes.ContainsKey(ct.QualifiedName.ToString());
-                    sb.Append("IXml" + (rootType && opt.StoreDB ? ", IQObject" : "") + "\n" + S1 + "{");
+                    sb.Append("IXml" + (opt.ReadDB ? ", IRow" : "") + (rootType && opt.StoreDB ? ", IQObject" : "") + "\n" + S1 + "{");
 
                     var particle = ct.ContentTypeParticle;
                     if (particle.ToString().EndsWith("EmptyParticle") || particle is XmlSchemaGroupBase)
@@ -217,6 +218,7 @@ namespace " + namesp + @".AF.Kps
 
                         pr = new StringBuilder();
                         pu = new StringBuilder();
+                        fb = new StringBuilder();
                         fx = new StringBuilder();
                         tx = new StringBuilder();
                         si = new StringBuilder();
@@ -225,6 +227,8 @@ namespace " + namesp + @".AF.Kps
                         si3 = new StringBuilder();
                         fldList = new Dictionary<string, bool>();
 
+                        if (opt.ReadDB)
+                            fb.Append(S + "public void Init(DbDataReader r, Dictionary<string, int> columns)\n" + S + "{\n");
                         fx.Append(S + "public " + (wasParent ? "new " : "") + "void Init(XElement r)\n" + S + "{\n");
                         if (wasParent)
                             fx.Append(S2 + "base.Init(r);\n\n");
@@ -247,6 +251,7 @@ namespace " + namesp + @".AF.Kps
                         wasVar = false;
                         wasList = false;
                         wasItem = false;
+                        wasLongB = false;
                         wasLong = false;
 
                         if (particle is XmlSchemaGroupBase)
@@ -275,6 +280,8 @@ namespace " + namesp + @".AF.Kps
                             }
                         }
 
+                        if (opt.ReadDB)
+                            fb.Append(S + "}\n\n");
                         fx.Append(S + "}\n");
                         tx.Append("\n" + S2 + "return r;\n" + S + "}\n");
 
@@ -302,6 +309,8 @@ namespace " + namesp + @".AF.Kps
                         if (pu.Length > 0)
                             sb.Append("\n");
 
+                        if (opt.ReadDB)
+                            sb.Append(fb);
                         sb.Append(fx);
                         sb.Append("\n");
                         sb.Append(tx);
@@ -454,6 +463,12 @@ namespace " + namesp + @".AF.Kps
                             {
                                 pu.Append(S + "public " + typeName + " " + ename + " { get; set; } //");
 
+                                if (wasLongB)
+                                    fb.Append("\n");
+                                fb.Append(S2 + ename + " = new " + typeName + "();\n");
+                                fb.Append(S2 + ename + ".Init(r, columns);\n");
+                                wasLongB = true;
+
                                 if (wasItem && !wasLong)
                                     fx.Append("\n");
                                 fx.Append(S2 + (wasVar ? "" : "var ") + "e = XmlParser.Element(r, \"" + enameO + "\", false);\n");
@@ -470,6 +485,8 @@ namespace " + namesp + @".AF.Kps
                             {
                                 pr.Append(S + "private " + typeName + " " + uname(ename) + " = new " + typeName + "();\n");
                                 pu.Append(S + "public " + typeName + " " + ename + " { get { return " + uname(ename) + "; } } //");
+
+                                fb.Append(S2 + ename + ".Init(r, columns);\n");
                                 fx.Append(S2 + ename + ".Init(XmlParser.Element(r, \"" + enameO + "\"));\n");
                                 tx.Append(S2 + "r.Add(" + ename + ".ToXElement(" + prefix + " + \"" + enameO + "\", ns));\n");
                                 wasLong = false;
@@ -509,12 +526,15 @@ namespace " + namesp + @".AF.Kps
                             string baseType = info.BaseType;
                             string qType = "String";
                             int maxLen = info.MaxLen;
+                            if (wasLongB)
+                                fb.Append("\n");
                             if (elem.MinOccurs == 0 || isChoice)
                             {
                                 if (info.BaseType == "string")
                                 {
                                     if (maxLen == -1)
                                         maxLen = 100;
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValue(r, \"" + enameO + "\", false);\n");
                                     tx.Append(S2 + "if (!string.IsNullOrEmpty(" + ename + "))\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
@@ -523,6 +543,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     qType = "Date";
                                     baseType += "?";
+                                    fb.Append(S2 + ename + " = Util.ToDateNull(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueDateNull(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "if (" + ename + " != null)\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + ename + ".Value)));\n");
@@ -531,6 +552,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     qType = "Number";
                                     baseType += "?";
+                                    fb.Append(S2 + ename + " = Util.ToDecimalNull(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueDecimalNull(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "if (" + ename + " != null)\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ".Value)));\n");
@@ -539,6 +561,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     qType = "Number";
                                     baseType += "?";
+                                    fb.Append(S2 + ename + " = Util.ToIntNull(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueIntNull(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "if (" + ename + " != null)\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Int2Str(" + ename + ".Value)));\n");
@@ -547,6 +570,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     baseType = "string";
                                     maxLen = 1;
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]) == \"\" ? null : Util.ToStr(r[\"" + enameO + "\"]) == \"Да\";\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\", false);\n");
                                     tx.Append(S2 + "if (!string.IsNullOrEmpty(" + ename + "))\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
@@ -558,24 +582,28 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     if (maxLen == -1)
                                         maxLen = 100;
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValue(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
                                 else if (info.BaseType == "DateTime")
                                 {
                                     qType = "Date";
+                                    fb.Append(S2 + ename + " = Util.ToDate(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = (DateTime)XmlParser.Element(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Date" + (info.TypeCode == "DateTime" ? "Time" : "") + "2Str(" + ename + ")));\n");
                                 }
                                 else if (info.BaseType == "decimal")
                                 {
                                     qType = "Number";
+                                    fb.Append(S2 + ename + " = Util.ToDecimal(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = (decimal)XmlParser.Element(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ")));\n");
                                 }
                                 else if (info.BaseType == "int")
                                 {
                                     qType = "Number";
+                                    fb.Append(S2 + ename + " = Util.ToInt(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = (int)XmlParser.Element(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Int2Str(" + ename + ")));\n");
                                 }
@@ -583,6 +611,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     baseType = "string";
                                     info.MaxLen = 1;
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]) == \"Да\";\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }

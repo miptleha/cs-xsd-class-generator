@@ -16,10 +16,15 @@ namespace ClassGenerator.Generator
         public string CSharpNamespace { get; set; }
 
         /// <summary>
-        /// Add methods to work with DB
+        /// Add methods to generate DB and futher generation for inserts (QueryGenerator project)
         /// </summary>
         public bool StoreDB { get; set; }
 
+        /// <summary>
+        /// Add methods to read data from DB
+        /// </summary>
+        public bool ReadDB { get; set; }
+        
         /// <summary>
         /// Tables prefixes in DB
         /// </summary>
