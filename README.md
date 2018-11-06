@@ -1,4 +1,4 @@
-# Class generator from xsd schema
+# CSharp class generator for xsd schema
 
 <ul>
 <li>Console application that converts xsd to cs classes.</li>
