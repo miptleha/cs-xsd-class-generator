@@ -1,7 +1,7 @@
 ﻿using ClassGenerator.AF;
 using System.Xml.Linq;
 
-namespace ClassGenerator.Xml
+namespace Xml
 {
     interface IXml
     {

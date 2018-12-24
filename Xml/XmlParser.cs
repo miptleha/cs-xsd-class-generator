@@ -8,7 +8,7 @@ using System.Xml;
 using ClassGenerator.AF;
 using System.Globalization;
 
-namespace ClassGenerator.Xml
+namespace Xml
 {
     class XmlParser
     {

@@ -28,7 +28,7 @@ namespace ClassGenerator.Generator
 
         ILog log;
         bool wasParent, wasVar, wasList, wasItem, wasLong, wasLongB;
-        StringBuilder pr, pu, fb, fx, tx, si, si1, si2, si3;
+        StringBuilder pr, pu, fb, fx, tx, si, si1, si11, si2, si3;
         Dictionary<string, XmlSchemaSimpleType> simpleTypes;
         Dictionary<string, XmlSchemaComplexType> complexTypes;
         Dictionary<string, List<XmlSchemaComplexType>> listComplexTypes;
@@ -47,7 +47,7 @@ namespace ClassGenerator.Generator
                 for (int i1 = 0; i1 < opt.Files.Count; i1++)
                 {
                     var f = opt.Files[i1];
-                    var opt1 = new XsdContentReaderOptions { CSharpNamespace = opt.CSharpNamespace, StoreDB = opt.StoreDB, StoreDBPrefix = opt.StoreDBPrefix, ExactDBNames = opt.ExactDBNames };
+                    var opt1 = new XsdContentReaderOptions { CSharpNamespace = opt.CSharpNamespace, StoreDB = opt.StoreDB, ReadDB = opt.ReadDB, StoreDBPrefix = opt.StoreDBPrefix, ExactDBNames = opt.ExactDBNames };
                     opt1.Files.Add(f);
                     resContent.AddRange(GenerateClasses(opt1, i1 == 0 ? true : false));
                 }
@@ -182,7 +182,7 @@ using System;
 using System.Collections.Generic;
 using System.Xml.Linq;" +
 (opt.StoreDB ? "\nusing QueryGenerator;" : "") +
-(opt.ReadDB ? "\nusing Db;\nusing System.Data.Common;" : "") +
+(opt.ReadDB ? "\nusing Db;\nusing System.Data.Common;\nusing Misc;" : "") +
 @"
 
 namespace " + namesp + @".AF.Kps
@@ -223,12 +223,17 @@ namespace " + namesp + @".AF.Kps
                         tx = new StringBuilder();
                         si = new StringBuilder();
                         si1 = new StringBuilder();
+                        si11 = new StringBuilder();
                         si2 = new StringBuilder();
                         si3 = new StringBuilder();
                         fldList = new Dictionary<string, bool>();
 
                         if (opt.ReadDB)
-                            fb.Append(S + "public void Init(DbDataReader r, Dictionary<string, int> columns)\n" + S + "{\n");
+                        {
+                            fb.Append(S + "public " + (wasParent ? "new " : "") + "void Init(DbDataReader r, Dictionary<string, int> columns)\n" + S + "{\n");
+                            if (wasParent)
+                                fb.Append(S2 + "base.Init(r, columns);\n\n");
+                        }
                         fx.Append(S + "public " + (wasParent ? "new " : "") + "void Init(XElement r)\n" + S + "{\n");
                         if (wasParent)
                             fx.Append(S2 + "base.Init(r);\n\n");
@@ -289,13 +294,15 @@ namespace " + namesp + @".AF.Kps
                         if (si1.Length > 1)
                         {
                             si1.Length = si1.Length - 2;
-                            si1_str = "var prf = (prefix != null && prefix.Length > 10 ? prefix.Substring(0, 5) + prefix.Substring(prefix.Length - 5) : prefix);\n";
-                            si1_str += S2 + "data.AddInfo(qt, h,\n" + si1.ToString() + ");\n";
+                            si1_str = "";
+                            if (!_opt.ExactDBNames)
+                                si1_str = "var prf = (prefix != null && prefix.Length > 10 ? prefix.Substring(0, 5) + prefix.Substring(prefix.Length - 5) : prefix);\n" + S2;
+                            si1_str += "data.AddInfo(qt, h,\n" + si1.ToString() + ");\n";
                         }
                         if (wasParent)
                             si1_str += S2 + className(ct.BaseXmlSchemaType) + ".StoreInfo(qt, h, prefix, comment, tab_prefix, tab_comment, data);\n";
                         si1_str += "\n";
-                        string si_str = S2 + si1_str + si2.ToString() + "\n" + si3.ToString();
+                        string si_str = S2 + si1_str + (si11.Length > 0 ? si11.ToString() + "\n" : "") + (si2.Length > 0 ? si2.ToString() + "\n" : "") + si3.ToString();
                         si_str = si_str.TrimEnd(' ', '\n');
                         si.Append(si_str + "\n" + S + "}\n");
 
@@ -404,8 +411,8 @@ namespace " + namesp + @".AF.Kps
                     pu.Append(S + "//" + gName + "\n");
                     int pos2 = pu.Length;
                     XmlSchemaGroupBase baseParticle2 = subParticle as XmlSchemaGroupBase;
-                    isChoice = isChoice || (groupName(baseParticle2.ToString()) == "choice");
-                    ParseGroup(ignoredNames, prefix, baseParticle2, isChoice);
+                    var isChoice2 = isChoice || (groupName(baseParticle2.ToString()) == "choice");
+                    ParseGroup(ignoredNames, prefix, baseParticle2, isChoice2);
                     if (pu.Length == pos2)
                         pu.Length = pos1;
                     else
@@ -519,6 +526,24 @@ namespace " + namesp + @".AF.Kps
 
                                 tx.Append(S2 + "foreach (var i in " + ename + ")\n");
                                 tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", i));\n");
+                                si11.Append(S2 + "StringList.StoreInfo(new QTable { Name = (tab_prefix.Length > 23 ? tab_prefix.Substring(0, 23) : tab_prefix) + \"" + (enameS.Length > 3 ? enameS.Substring(0, 3) : enameS) + "\", Comment = (tab_comment != null ? tab_comment + \": \" : \"\") + \"" + cmt + "\", Pk = \"Id\", PkComment = \"Идентификатор\", Fk = \"IdFk\", FkComment = \"Идентификатор родительской записи\" },\n");
+                                si11.Append(S3 + "new QHierarchy(\"" + ename + "\", QHType.List, h), " + info.MaxLen + ", \"" + cmt + "\", data);\n");
+                            }
+                            else if (info.BaseType == "decimal")
+                            {
+                                if (wasItem && !wasLong)
+                                    fx.Append("\n");
+                                fx.Append(S2 + ename + ".Clear();\n");
+                                fx.Append(S2 + (wasList ? "" : "var ") + "list = XmlParser.Elements(r, \"" + enameO + "\");\n");
+                                wasList = true;
+                                fx.Append(S2 + "foreach (var i in list)\n");
+                                fx.Append(S3 + ename + ".Add((decimal)i);\n");
+                                wasLong = true;
+
+                                tx.Append(S2 + "foreach (var i in " + ename + ")\n");
+                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(i)));\n");
+                                si11.Append(S2 + "NumberList.StoreInfo(new QTable { Name = (tab_prefix.Length > 23 ? tab_prefix.Substring(0, 23) : tab_prefix) + \"" + (enameS.Length > 3 ? enameS.Substring(0, 3) : enameS) + "\", Comment = (tab_comment != null ? tab_comment + \": \" : \"\") + \"" + cmt + "\", Pk = \"Id\", PkComment = \"Идентификатор\", Fk = \"IdFk\", FkComment = \"Идентификатор родительской записи\" },\n");
+                                si11.Append(S3 + "new QHierarchy(\"" + ename + "\", QHType.List, h), \"" + cmt + "\", data);\n");
                             }
                         }
                         else
@@ -570,7 +595,7 @@ namespace " + namesp + @".AF.Kps
                                 {
                                     baseType = "string";
                                     maxLen = 1;
-                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]) == \"\" ? null : Util.ToStr(r[\"" + enameO + "\"]) == \"Да\";\n");
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]) == \"\" ? null : Util.ToStr(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\", false);\n");
                                     tx.Append(S2 + "if (!string.IsNullOrEmpty(" + ename + "))\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
@@ -596,7 +621,7 @@ namespace " + namesp + @".AF.Kps
                                 else if (info.BaseType == "decimal")
                                 {
                                     qType = "Number";
-                                    fb.Append(S2 + ename + " = Util.ToDecimal(r[\"" + enameO + "\"]);\n");
+                                    fb.Append(S2 + ename + " = r[\"" + enameO + "\"] == DBNull.Value ? 0 : Util.ToDecimal(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = (decimal)XmlParser.Element(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ")));\n");
                                 }
@@ -610,8 +635,8 @@ namespace " + namesp + @".AF.Kps
                                 else if (info.BaseType == "bool")
                                 {
                                     baseType = "string";
-                                    info.MaxLen = 1;
-                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]) == \"Да\";\n");
+                                    maxLen = 1;
+                                    fb.Append(S2 + ename + " = Util.ToStr(r[\"" + enameO + "\"]);\n");
                                     fx.Append(S2 + ename + " = XmlParser.ElementValueBool(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", " + ename + "));\n");
                                 }
@@ -627,6 +652,7 @@ namespace " + namesp + @".AF.Kps
                             si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") +", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = " + (_opt.ExactDBNames ? "null" : "prf") + ", Comment = " + (_opt.ExactDBNames ? "" : "(comment != null ? comment + \": \" : \"\") + ") + "\"" + cmt + "\" },\n");
                             pu.Append(S + "public " + baseType + " " + ename + " { get; set; } //");
                             wasLong = false;
+                            wasLongB = false;
                         }
                         if (elem.MinOccurs == 0)
                             pu.Append("optional, ");
@@ -753,8 +779,16 @@ namespace " + namesp + @".AF.Kps
             {
                 string baseType2 = type.Datatype.ValueType.Name;
                 string typeCode2 = type.TypeCode.ToString();
-                if (typeCode2 == "GYear" || typeCode2 == "Time")
+                if (typeCode2 == "GYear")
+                {
                     baseType2 = "String";
+                    maxLen = 4;
+                }
+                else if (typeCode2 == "Time")
+                {
+                    baseType2 = "String";
+                    maxLen = 20;
+                }
                 string pattern2 = getPattern(type);
                 int minLen2 = getMinLength(type);
                 int maxLen2 = getMaxLength(type);
@@ -829,7 +863,7 @@ namespace " + namesp + @".AF.Kps
             int result = -1;
             foreach (XmlSchemaObject facet in restriction.Facets)
             {
-                if (facet is XmlSchemaMaxLengthFacet)
+                if (facet is XmlSchemaMaxLengthFacet || facet is XmlSchemaLengthFacet)
                     result = int.Parse(((XmlSchemaFacet)facet).Value);
             }
             return result;
@@ -844,7 +878,7 @@ namespace " + namesp + @".AF.Kps
             int result = -1;
             foreach (XmlSchemaObject facet in restriction.Facets)
             {
-                if (facet is XmlSchemaMinLengthFacet)
+                if (facet is XmlSchemaMinLengthFacet || facet is XmlSchemaLengthFacet)
                     result = int.Parse(((XmlSchemaFacet)facet).Value);
             }
             return result;

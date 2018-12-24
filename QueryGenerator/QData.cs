@@ -286,4 +286,28 @@ namespace QueryGenerator
         public QHierarchy Hierarchy { get; set; }
         public QTable Table { get; set; }
     }
+
+    /// <summary>
+    /// Helper class for list of string
+    /// </summary>
+    public class StringList
+    {
+        internal static void StoreInfo(QTable qt, QHierarchy h, int size, string comment, QData data)
+        {
+            data.AddInfo(qt, h,
+                new QField { Name = "Value", NoNameCs = true, Type = QType.String, Size = size, Prefix = null, Comment = comment });
+        }
+    }
+
+    /// <summary>
+    /// Helper class for list of number
+    /// </summary>
+    public class NumberList
+    {
+        internal static void StoreInfo(QTable qt, QHierarchy h, string comment, QData data)
+        {
+            data.AddInfo(qt, h,
+                new QField { Name = "Value", NoNameCs = true, Type = QType.Number, Prefix = null, Comment = comment });
+        }
+    }
 }
