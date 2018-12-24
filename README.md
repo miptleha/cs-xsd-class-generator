@@ -3,7 +3,7 @@
 Console application that converts xsd to cs classes.<br/>
 Generated classes have methods to serialize/deserialize to xml.<br/>
 Generated classes have methods to initialize object from db.<br/>
-Generates methods for [Database generator](https://github.com/miptleha/cs-query-generator).
+Generated methods for [Database generator](https://github.com/miptleha/cs-query-generator).
 
 
 ## How to use
