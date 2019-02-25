@@ -44,6 +44,11 @@ namespace ClassGenerator.Generator
         /// Parse one file at a time, not as single set
         /// </summary>
         public bool FileByFile { get; set; }
+
+        /// <summary>
+        /// Translator for names
+        /// </summary>
+        public Dictionary<string, string> Translator { get; set; }
     }
 
     class XsdFileInfo
@@ -57,5 +62,10 @@ namespace ClassGenerator.Generator
         /// Name of XNamespace property for schema (in Namespaces.cs)
         /// </summary>
         public string ShortNamespace { get; set; }
+
+        /// <summary>
+        /// Prefix for all classes
+        /// </summary>
+        public string Prefix { get; set; }
     }
 }

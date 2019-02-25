@@ -310,4 +310,16 @@ namespace QueryGenerator
                 new QField { Name = "Value", NoNameCs = true, Type = QType.Number, Prefix = null, Comment = comment });
         }
     }
+
+    /// <summary>
+    /// Helper class for list of dates
+    /// </summary>
+    public class DateList
+    {
+        internal static void StoreInfo(QTable qt, QHierarchy h, string comment, QData data)
+        {
+            data.AddInfo(qt, h,
+                new QField { Name = "Value", NoNameCs = true, Type = QType.Date, Prefix = null, Comment = comment });
+        }
+    }
 }

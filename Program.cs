@@ -29,7 +29,7 @@ namespace ClassGenerator
                 var content = reader.GenerateClasses(opt);
                 foreach (var c in content)
                 {
-                    log.Debug(c);
+                    //log.Debug(c);
                 }
                 log.Debug("All done, see generated code in log or in .cs files in Debug folder");
             }
