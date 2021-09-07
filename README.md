@@ -1,9 +1,9 @@
 # CSharp class generator for xsd schema
 
 Console application that converts xsd to cs classes.<br/>
-Generated classes have methods to serialize/deserialize to xml.<br/>
-Generated classes have methods to initialize object from db.<br/>
-Generated methods for [Database generator](https://github.com/miptleha/cs-query-generator).
+Generated classes have methods to serialize/deserialize to xml (optional).<br/>
+Generated classes have methods to initialize object from db (optional).<br/>
+Generated methods for [Database generator](https://github.com/miptleha/cs-query-generator) (optional).
 
 
 ## How to use
@@ -12,7 +12,7 @@ Generated methods for [Database generator](https://github.com/miptleha/cs-query-
 -   if some errors see log\ClassGenerator.log
 -   all classes will be generated inside bin\Debug\code folder
 -   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator, Db folder
--   note: fields generated only for elements, not for attributes
+-   note: fields generated only for elements, not for attributes!
 
 ## Sample
 
