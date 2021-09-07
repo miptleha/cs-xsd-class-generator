@@ -16,6 +16,11 @@ namespace ClassGenerator.Generator
         public string CSharpNamespace { get; set; }
 
         /// <summary>
+        /// Add methods to read data from xml and store into xml
+        /// </summary>
+        public bool IsXml { get; set; }
+
+        /// <summary>
         /// Add methods to generate DB and futher generation for inserts (QueryGenerator project)
         /// </summary>
         public bool StoreDB { get; set; }

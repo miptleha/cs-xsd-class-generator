@@ -206,10 +206,9 @@ namespace ClassGenerator.Generator
                 var sb = new StringBuilder();
                 sb.Append("\n\n *** " + ns + " *** \n\n");
                 sb.Append(@"
-using Xml;
 using System;
-using System.Collections.Generic;
-using System.Xml.Linq;" +
+using System.Collections.Generic;" +
+(opt.IsXml ? "\nusing System.Xml.Linq;\nusing Xml; " : "") +
 (opt.StoreDB ? "\nusing QueryGenerator;" : "") +
 (opt.ReadDB ? "\nusing Db;\nusing System.Data.Common;\nusing Misc;" : "") +
 @"
@@ -223,21 +222,32 @@ namespace " + namesp + @".AF.Kps
                         ann = getAnnotation(complexTypeElem[ct].Annotation);
 
                     sb.Append("\n" + S1 + "//" + ann + "\n");
-                    sb.Append(S1 + "public class " + translate(className(ct)) + " : ");
+                    sb.Append(S1 + "public class " + translate(className(ct)));
                     var ignoredNames = new Dictionary<string, bool>();
                     wasParent = false;
+                    List<string> parentCls = new List<string>();
                     if (ct.BaseXmlSchemaType.QualifiedName.ToString() != "http://www.w3.org/2001/XMLSchema:anyType")
                     {
                         var ctBase = className(ct.BaseXmlSchemaType);
                         if (!string.IsNullOrEmpty(ctBase))
                         {
-                            sb.Append(ctBase + ", ");
+                            parentCls.Add(ctBase);
                             wasParent = true;
                         }
                         getIgnoredNames(ct, ignoredNames);
                     }
+                    
                     bool rootType = rootTypes.ContainsKey(string.IsNullOrEmpty(ct.QualifiedName.ToString()) ? complexTypeElem[ct].Name + "Type" : ct.QualifiedName.ToString());
-                    sb.Append("IXml" + (opt.ReadDB ? ", IRow" : "") + (rootType && opt.StoreDB ? ", IQObject" : "") + "\n" + S1 + "{");
+                    if (opt.IsXml)
+                        parentCls.Add("IXml");
+                    if (opt.ReadDB)
+                        parentCls.Add("IRow");
+                    if (rootType && opt.StoreDB)
+                        parentCls.Add("IQObject");
+
+                    if (parentCls.Count > 0)
+                        sb.Append(" : ");
+                    sb.Append(string.Join(", ", parentCls) + "\n" + S1 + "{");
 
                     var particle = ct.ContentTypeParticle;
                     if (particle.ToString().EndsWith("EmptyParticle") || particle is XmlSchemaGroupBase)
@@ -347,9 +357,12 @@ namespace " + namesp + @".AF.Kps
 
                         if (opt.ReadDB)
                             sb.Append(fb);
-                        sb.Append(fx);
-                        sb.Append("\n");
-                        sb.Append(tx);
+                        if (opt.IsXml)
+                        {
+                            sb.Append(fx);
+                            sb.Append("\n");
+                            sb.Append(tx);
+                        }
 
                         if (opt.StoreDB)
                         {
@@ -641,7 +654,7 @@ namespace " + namesp + @".AF.Kps
                                     tx.Append(S2 + "if (" + ename + " != null)\n");
                                     tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ".Value)));\n");
                                 }
-                                else if (info.BaseType == "int")
+                                else if (info.BaseType == "int" || info.BaseType == "byte")
                                 {
                                     qType = "Number";
                                     baseType += "?";
@@ -697,7 +710,7 @@ namespace " + namesp + @".AF.Kps
                                     fx.Append(S2 + ename + " = (decimal)XmlParser.Element(r, \"" + enameO + "\");\n");
                                     tx.Append(S2 + "r.Add(new XElement(" + prefix + " + \"" + enameO + "\", XmlParser.Decimal2Str(" + ename + ")));\n");
                                 }
-                                else if (info.BaseType == "int")
+                                else if (info.BaseType == "int" || info.BaseType == "byte")
                                 {
                                     qType = "Number";
                                     fb.Append(S2 + ename + " = Util.ToInt(r[\"" + enameOt + "\"]);\n");
@@ -732,7 +745,7 @@ namespace " + namesp + @".AF.Kps
                             enameF = uniqueName(enameF, fldList);
                             if (_opt.ExactDBNames)
                                 enameF = ename;
-                            si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") +", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = " + (_opt.ExactDBNames ? "null" : "prf") + ", Comment = " + (_opt.ExactDBNames ? "" : "(comment != null ? comment + \": \" : \"\") + ") + "\"" + cmt + "\" },\n");
+                            si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") +", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + cmt + "\" },\n");
                             pu.Append(S + "public " + baseType + " " + ename + " { get; set; } //");
                             wasLong = false;
                             wasLongB = false;
@@ -922,6 +935,8 @@ namespace " + namesp + @".AF.Kps
                 return "decimal";
             if (baseType == "Boolean")
                 return "bool";
+            if (baseType == "SByte")
+                return "byte";
             if (baseType == "Int32")
                 return "int";
             if (baseType == "Int64")

@@ -17,6 +17,7 @@ namespace ClassGenerator
 
                 //see XsdContentReaderOptions class for more options
                 var opt = new XsdContentReaderOptions();
+                opt.IsXml = true;
                 opt.StoreDB = true;
                 opt.ReadDB = true;
                 opt.StoreDBPrefix = "a";
