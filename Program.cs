@@ -17,11 +17,13 @@ namespace ClassGenerator
 
                 //see XsdContentReaderOptions class for more options
                 var opt = new XsdContentReaderOptions();
-                opt.IsXml = true;
-                opt.StoreDB = true;
-                opt.ReadDB = true;
+                
+                //set this options to true and see the change in generated code
+                opt.IsXml = false;
+                opt.StoreDB = false;
+                opt.ReadDB = false;
+                
                 opt.StoreDBPrefix = "a";
-
                 opt.CSharpNamespace = "SampleService";
 
                 opt.Files.Add(new XsdFileInfo { FileName = "sample.xsd", ShortNamespace = "Test" });
