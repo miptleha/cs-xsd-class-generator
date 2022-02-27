@@ -36,6 +36,7 @@ namespace ClassGenerator.Generator
         Dictionary<XmlSchemaType, string> complexTypesPrefix = new Dictionary<XmlSchemaType, string>();
         Dictionary<string, bool> complexTypeElemNames = new Dictionary<string, bool>();
         Dictionary<string, string> sameTypes;
+        Dictionary<XmlSchemaType, string> anonTypes = new Dictionary<XmlSchemaType, string>();
         Dictionary<string, bool> tblList;
         Dictionary<string, bool> fldList;
         XsdContentReaderOptions _opt;
@@ -48,7 +49,7 @@ namespace ClassGenerator.Generator
                 for (int i1 = 0; i1 < opt.Files.Count; i1++)
                 {
                     var f = opt.Files[i1];
-                    var opt1 = new XsdContentReaderOptions { CSharpNamespace = opt.CSharpNamespace, StoreDB = opt.StoreDB, ReadDB = opt.ReadDB, StoreDBPrefix = opt.StoreDBPrefix, ExactDBNames = opt.ExactDBNames, Translator = opt.Translator };
+                    var opt1 = new XsdContentReaderOptions { CSharpNamespace = opt.CSharpNamespace, StoreDB = opt.StoreDB, ReadDB = opt.ReadDB, StoreDBPrefix = opt.StoreDBPrefix, ExactDBNames = opt.ExactDBNames, Translator = opt.Translator, IsXml = opt.IsXml };
                     opt1.Files.Add(f);
                     resContent.AddRange(GenerateClasses(opt1, i1 == 0 ? true : false));
                 }
@@ -128,6 +129,7 @@ namespace ClassGenerator.Generator
                             complexTypeElem.Add(ct, xse);
                             complexTypeElemNames.Add(xse.Name, true);
                             list.Add(ct);
+                            ParseGroupType(ct, list, nsMap[schema.TargetNamespace]);
                         }
                     }
                     rootTypes.Add(typeName, true);
@@ -141,7 +143,7 @@ namespace ClassGenerator.Generator
                         complexTypes.Add(ct.QualifiedName.ToString(), ct);
                         complexTypesPrefix.Add(ct, nsMap2[schema.TargetNamespace]);
                         list.Add(ct);
-                        ParseGroupType(ct, list);
+                        ParseGroupType(ct, list, nsMap[schema.TargetNamespace]);
                     }
                     else if (type is XmlSchemaSimpleType)
                     {
@@ -314,7 +316,8 @@ namespace " + namesp + @".AF.Kps
                                 pos2 = pu.Length;
                             }
                             bool isChoice = (groupName(baseParticle.ToString()) == "choice");
-                            ParseGroup(ignoredNames, prefix, baseParticle, isChoice);
+                            Dictionary<string, bool> ignoredNames2 = new Dictionary<string, bool>();
+                            ParseGroup(ignoredNames, ignoredNames2, prefix, baseParticle, isChoice);
                             if (gName != "sequence")
                             {
                                 if (pu.Length == pos2)
@@ -398,7 +401,9 @@ namespace " + namesp + @".AF.Kps
             return res;
         }
 
-        private void ParseGroupType(XmlSchemaComplexType ct, List<XmlSchemaComplexType> list)
+
+
+        private void ParseGroupType(XmlSchemaComplexType ct, List<XmlSchemaComplexType> list, string prefix)
         {
             var particle = ct.ContentTypeParticle;
             if (particle.ToString().EndsWith("EmptyParticle") || particle is XmlSchemaGroupBase)
@@ -407,12 +412,12 @@ namespace " + namesp + @".AF.Kps
                 if (particle is XmlSchemaGroupBase)
                 {
                     XmlSchemaGroupBase baseParticle = particle as XmlSchemaGroupBase;
-                    ParseGroupType(baseParticle, list);
+                    ParseGroupType(baseParticle, list, prefix);
                 }
             }
         }
 
-        private void ParseGroupType(XmlSchemaGroupBase baseParticle, List<XmlSchemaComplexType> list)
+        private void ParseGroupType(XmlSchemaGroupBase baseParticle, List<XmlSchemaComplexType> list, string prefix)
         {
             foreach (XmlSchemaParticle subParticle in baseParticle.Items)
             {
@@ -420,7 +425,7 @@ namespace " + namesp + @".AF.Kps
                 {
                     string gName = groupName(subParticle.ToString());
                     XmlSchemaGroupBase baseParticle2 = subParticle as XmlSchemaGroupBase;
-                    ParseGroupType(baseParticle2, list);
+                    ParseGroupType(baseParticle2, list, prefix);
                 }
                 else if (subParticle is XmlSchemaElement)
                 {
@@ -433,14 +438,16 @@ namespace " + namesp + @".AF.Kps
                             list.Add(type);
                             complexTypeElem.Add(type, elem);
                             complexTypeElemNames.Add(elem.Name, true);
+                            if (type.Name == null)
+                                anonTypes.Add(type, prefix + elem.Name + "Type");
                         }
-                        ParseGroupType(type, list);
+                        ParseGroupType(type, list, prefix);
                     }
                 }
             }
         }
 
-        private void ParseGroup(Dictionary<string, bool> ignoredNames, string prefix, XmlSchemaGroupBase baseParticle, bool isChoice)
+        private void ParseGroup(Dictionary<string, bool> ignoredNames, Dictionary<string, bool> ignoredNames2, string prefix, XmlSchemaGroupBase baseParticle, bool isChoice)
         {
             foreach (XmlSchemaParticle subParticle in baseParticle.Items)
             {
@@ -454,7 +461,7 @@ namespace " + namesp + @".AF.Kps
                     int pos2 = pu.Length;
                     XmlSchemaGroupBase baseParticle2 = subParticle as XmlSchemaGroupBase;
                     var isChoice2 = isChoice || (groupName(baseParticle2.ToString()) == "choice");
-                    ParseGroup(ignoredNames, prefix, baseParticle2, isChoice2);
+                    ParseGroup(ignoredNames, ignoredNames2, prefix, baseParticle2, isChoice2);
                     if (pu.Length == pos2)
                         pu.Length = pos1;
                     else
@@ -465,6 +472,14 @@ namespace " + namesp + @".AF.Kps
                     XmlSchemaElement elem = subParticle as XmlSchemaElement;
                     if (ignoredNames.ContainsKey(elem.QualifiedName.Name))
                         continue;
+                    
+                    if (ignoredNames2.ContainsKey(elem.QualifiedName.Name))
+                    {
+                        pu.Append(S + "//dublicate: " + elem.QualifiedName.Name + "\n");
+                        continue;
+                    }
+                    ignoredNames2.Add(elem.QualifiedName.Name, true);
+
                     if (wasLong)
                         fx.Append("\n");
 
@@ -483,9 +498,9 @@ namespace " + namesp + @".AF.Kps
                     {
                         var type = (XmlSchemaComplexType)elem.ElementSchemaType ?? complexTypes[elem.SchemaTypeName.ToString()];
                         var typeName = className(type);
-                        if (typeName == null && type.Datatype != null && type.Datatype.ValueType != null)
+                        if (string.IsNullOrEmpty(typeName) && type.Datatype != null && type.Datatype.ValueType != null)
                             typeName = fixBaseType(type.Datatype.ValueType.Name);
-                        if (typeName == null)
+                        if (string.IsNullOrEmpty(typeName))
                             typeName = ename + "Type";
                         typeName = translate(typeName);
                         var typeName2 = typeName;
@@ -833,8 +848,13 @@ namespace " + namesp + @".AF.Kps
             if (sameTypes.ContainsKey(type.QualifiedName.ToString()))
                 return prefix + sameTypes[type.QualifiedName.ToString()];
 
-            if (type.Name == null && complexTypeElem.ContainsKey(type))
-                return prefix + complexTypeElem[type].Name + "Type";
+            if (type.Name == null)
+            {
+                if (anonTypes.ContainsKey(type))
+                    return anonTypes[type];
+                else if (complexTypeElem.ContainsKey(type))
+                    return prefix + complexTypeElem[type].Name + "Type";
+            }
 
             return prefix + type.Name;
         }
