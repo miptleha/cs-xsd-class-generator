@@ -433,13 +433,16 @@ namespace " + namesp + @".AF.Kps
                     if (elem.SchemaType != null && elem.SchemaType is XmlSchemaComplexType)
                     {
                         var type = (XmlSchemaComplexType)elem.SchemaType;
-                        if (!complexTypeElemNames.ContainsKey(elem.Name) && !complexTypeElem.ContainsKey(type))
+                        var elName = elem.Name;
+                        if (type.Name == null)
+                            elName = prefix + elem.Name + "Type";
+                        if (!complexTypeElemNames.ContainsKey(elName) && !complexTypeElem.ContainsKey(type))
                         {
                             list.Add(type);
                             complexTypeElem.Add(type, elem);
-                            complexTypeElemNames.Add(elem.Name, true);
+                            complexTypeElemNames.Add(elName, true);
                             if (type.Name == null)
-                                anonTypes.Add(type, prefix + elem.Name + "Type");
+                                anonTypes.Add(type, elName);
                         }
                         ParseGroupType(type, list, prefix);
                     }
