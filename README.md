@@ -12,7 +12,6 @@ Generate methods for [Database generator](https://github.com/miptleha/cs-query-g
 -   if some errors see log\ClassGenerator.log
 -   all classes will be generated inside bin\Debug\code folder
 -   to compile and work with classes your will need helpers inside AF, Xml, QueryGenerator, Db folder
--   note: fields generated only for elements, not for attributes!
 
 ## Sample
 
