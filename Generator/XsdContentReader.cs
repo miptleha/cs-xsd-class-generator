@@ -300,6 +300,64 @@ namespace " + namesp + @".AF.Kps
                         wasLongB = false;
                         wasLong = false;
 
+                        var ats = ct.AttributeUses.Values;
+                        if (ats.Count > 0)
+                        {
+                            pu.Append(S + "//attributes\n");
+                        }
+                        foreach (XmlSchemaAttribute at in ats)
+                        {
+                            var anameO = at.Name;
+                            var aname = translate(at.Name.Replace('-', '_'));
+
+                            Type atype = typeof(string);
+                            if (at.AttributeSchemaType != null && at.AttributeSchemaType.Datatype != null && at.AttributeSchemaType.Datatype.ValueType != null)
+                                atype = at.AttributeSchemaType.Datatype.ValueType;
+                            string atypeName = fixBaseType(atype.Name);
+                            if (atypeName == "byte")
+                                atypeName = "int";
+                            pu.Append(S + "public " + (atypeName == "int" ? atypeName + "?" : atypeName) + " " + aname + " { get; set; } //\n");
+
+                            string qaType = "String";
+                            if (atypeName == "string")
+                            {
+                                fb.Append(S2 + aname + " = Util.ToStr(r[\"" + aname + "\"]);\n");
+                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (string)XmlParser.Attribute(r, \"" + anameO + "\") : null;\n");
+                                tx.Append(S2 + "if (!string.IsNullOrEmpty(" + aname + "))\n");
+                                tx.Append(S3 + "r.Add(new XAttribute(" + prefix + " + \"" + anameO + "\", " + aname + "));\n");
+                            }
+                            else if (atypeName == "int" || atypeName == "byte")
+                            {
+                                qaType = "Number";
+                                fb.Append(S2 + aname + " = Util.ToIntNull(r[\"" + aname + "\"]);\n");
+                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (int)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
+                                tx.Append(S2 + "if (" + aname + " != null)\n");
+                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Int2Str(" + aname + ".Value)));\n");
+                            }
+                            else if (atypeName == "decimal")
+                            {
+                                qaType = "Number";
+                                fb.Append(S2 + aname + " = Util.ToDecimalNull(r[\"" + aname + "\"]);\n");
+                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (decimal)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
+                                tx.Append(S2 + "if (" + aname + " != null)\n");
+                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Decimal2Str(" + aname + ".Value)));\n");
+                            }
+                            else
+                            {
+                                log.Debug("!!! unsupported attribute type: " + atypeName);
+                            }
+
+                            si1.Append(S3 + "new QField { " + "Name = \"" + aname + "\"" + ", Type = QType." + qaType + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + anameO + "\" },\n");
+                        }
+                        if (ats.Count > 0)
+                        {
+                            pu.Append("\n");
+                            fb.Append("\n");
+                            fx.Append("\n");
+                            tx.Append("\n");
+                        }
+
+
                         if (particle is XmlSchemaGroupBase)
                         {
                             XmlSchemaGroupBase baseParticle = particle as XmlSchemaGroupBase;
@@ -924,6 +982,10 @@ namespace " + namesp + @".AF.Kps
                 {
                     baseType2 = "String";
                     maxLen = 20;
+                }
+                else if (typeCode2 == "Base64Binary")
+                {
+                    baseType2 = "String";
                 }
                 string pattern2 = getPattern(type);
                 int minLen2 = getMinLength(type);
