@@ -53,11 +53,7 @@ There is sample xsd schema (included in project):
                <xs:simpleContent>
                   <xs:extension base="xs:string">
                      <xs:attribute name="attr1" type="xs:integer" />
-                     <xs:attribute name="attr2" type="xs:duration">
-                        <xs:annotation>
-                           <xs:appinfo>assemblyName, DotNetClass</xs:appinfo>
-                        </xs:annotation>
-                     </xs:attribute>
+                     <xs:attribute name="attr2" type="xs:string" />
                      <xs:attribute name="attr3" type="stringRegEx">
                         <xs:annotation>
                            <xs:documentation>declaration documentation</xs:documentation>
@@ -95,19 +91,24 @@ namespace SampleService.AF.Kps
     public class RootType
     {
         private List<string> _empty = new List<string>();
-        private StringWithAttrType _StringWithAttr = new StringWithAttrType();
+        private TestStringWithAttrType _StringWithAttr = new TestStringWithAttrType();
 
         public List<string> empty { get { return _empty; } } //optional, 
         public string StringElement1 { get; set; } //maxLen: 20, 
         public string StringElement2 { get; set; } //
         public string StringElement3 { get; set; } //pattern: [A-Z]*, 
-        public StringWithAttrType StringWithAttr { get { return _StringWithAttr; } } //
+        public TestStringWithAttrType StringWithAttr { get { return _StringWithAttr; } } //
 
     }
 
     //
-    public class StringWithAttrType
+    public class TestStringWithAttrType
     {
+        //attributes
+        public decimal attr1 { get; set; } //
+        public string attr2 { get; set; } //
+        public string attr3 { get; set; } //
+
     }
 
 }
