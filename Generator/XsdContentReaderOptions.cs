@@ -41,6 +41,11 @@ namespace ClassGenerator.Generator
         public bool ExactDBNames { get; set; }
 
         /// <summary>
+        /// Use schema attributes
+        /// </summary>
+        public bool UseAttributes { get; set; }
+
+        /// <summary>
         /// Set of schemas
         /// </summary>
         public List<XsdFileInfo> Files { get { return _files; } }

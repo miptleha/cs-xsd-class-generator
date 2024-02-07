@@ -238,7 +238,7 @@ namespace " + namesp + @".AF.Kps
                         }
                         getIgnoredNames(ct, ignoredNames);
                     }
-                    
+
                     bool rootType = rootTypes.ContainsKey(string.IsNullOrEmpty(ct.QualifiedName.ToString()) ? complexTypeElem[ct].Name + "Type" : ct.QualifiedName.ToString());
                     if (opt.IsXml)
                         parentCls.Add("IXml");
@@ -300,61 +300,64 @@ namespace " + namesp + @".AF.Kps
                         wasLongB = false;
                         wasLong = false;
 
-                        var ats = ct.AttributeUses.Values;
-                        if (ats.Count > 0)
+                        if (opt.UseAttributes)
                         {
-                            pu.Append(S + "//attributes\n");
-                        }
-                        foreach (XmlSchemaAttribute at in ats)
-                        {
-                            var anameO = at.Name;
-                            var aname = translate(at.Name.Replace('-', '_'));
+                            var ats = ct.AttributeUses.Values;
+                            if (ats.Count > 0)
+                            {
+                                pu.Append(S + "//attributes\n");
+                            }
+                            foreach (XmlSchemaAttribute at in ats)
+                            {
+                                var anameO = at.Name;
+                                var aname = translate(at.Name.Replace('-', '_'));
 
-                            Type atype = typeof(string);
-                            if (at.AttributeSchemaType != null && at.AttributeSchemaType.Datatype != null && at.AttributeSchemaType.Datatype.ValueType != null)
-                                atype = at.AttributeSchemaType.Datatype.ValueType;
-                            string atypeName = fixBaseType(atype.Name);
-                            if (atypeName == "byte")
-                                atypeName = "int";
-                            pu.Append(S + "public " + (atypeName == "int" ? atypeName + "?" : atypeName) + " " + aname + " { get; set; } //\n");
+                                Type atype = typeof(string);
+                                if (at.AttributeSchemaType != null && at.AttributeSchemaType.Datatype != null && at.AttributeSchemaType.Datatype.ValueType != null)
+                                    atype = at.AttributeSchemaType.Datatype.ValueType;
+                                string atypeName = fixBaseType(atype.Name);
+                                if (atypeName == "byte")
+                                    atypeName = "int";
+                                pu.Append(S + "public " + (atypeName == "int" ? atypeName + "?" : atypeName) + " " + aname + " { get; set; } //\n");
 
-                            string qaType = "String";
-                            if (atypeName == "string")
-                            {
-                                fb.Append(S2 + aname + " = Util.ToStr(r[\"" + aname + "\"]);\n");
-                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (string)XmlParser.Attribute(r, \"" + anameO + "\") : null;\n");
-                                tx.Append(S2 + "if (!string.IsNullOrEmpty(" + aname + "))\n");
-                                tx.Append(S3 + "r.Add(new XAttribute(" + prefix + " + \"" + anameO + "\", " + aname + "));\n");
-                            }
-                            else if (atypeName == "int" || atypeName == "byte")
-                            {
-                                qaType = "Number";
-                                fb.Append(S2 + aname + " = Util.ToIntNull(r[\"" + aname + "\"]);\n");
-                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (int)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
-                                tx.Append(S2 + "if (" + aname + " != null)\n");
-                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Int2Str(" + aname + ".Value)));\n");
-                            }
-                            else if (atypeName == "decimal")
-                            {
-                                qaType = "Number";
-                                fb.Append(S2 + aname + " = Util.ToDecimalNull(r[\"" + aname + "\"]);\n");
-                                fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (decimal)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
-                                tx.Append(S2 + "if (" + aname + " != null)\n");
-                                tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Decimal2Str(" + aname + ".Value)));\n");
-                            }
-                            else
-                            {
-                                log.Debug("!!! unsupported attribute type: " + atypeName);
-                            }
+                                string qaType = "String";
+                                if (atypeName == "string")
+                                {
+                                    fb.Append(S2 + aname + " = Util.ToStr(r[\"" + aname + "\"]);\n");
+                                    fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (string)XmlParser.Attribute(r, \"" + anameO + "\") : null;\n");
+                                    tx.Append(S2 + "if (!string.IsNullOrEmpty(" + aname + "))\n");
+                                    tx.Append(S3 + "r.Add(new XAttribute(" + prefix + " + \"" + anameO + "\", " + aname + "));\n");
+                                }
+                                else if (atypeName == "int" || atypeName == "byte")
+                                {
+                                    qaType = "Number";
+                                    fb.Append(S2 + aname + " = Util.ToIntNull(r[\"" + aname + "\"]);\n");
+                                    fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (int)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
+                                    tx.Append(S2 + "if (" + aname + " != null)\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Int2Str(" + aname + ".Value)));\n");
+                                }
+                                else if (atypeName == "decimal")
+                                {
+                                    qaType = "Number";
+                                    fb.Append(S2 + aname + " = Util.ToDecimalNull(r[\"" + aname + "\"]);\n");
+                                    fx.Append(S2 + aname + " = XmlParser.Attribute(r, \"" + anameO + "\", false) != null ? (decimal)XmlParser.Attribute(r, \"" + anameO + "\") : (int?)null;\n");
+                                    tx.Append(S2 + "if (" + aname + " != null)\n");
+                                    tx.Append(S3 + "r.Add(new XElement(" + prefix + " + \"" + anameO + "\", XmlParser.Decimal2Str(" + aname + ".Value)));\n");
+                                }
+                                else
+                                {
+                                    log.Debug("!!! unsupported attribute type: " + atypeName);
+                                }
 
-                            si1.Append(S3 + "new QField { " + "Name = \"" + aname + "\"" + ", Type = QType." + qaType + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + anameO + "\" },\n");
-                        }
-                        if (ats.Count > 0)
-                        {
-                            pu.Append("\n");
-                            fb.Append("\n");
-                            fx.Append("\n");
-                            tx.Append("\n");
+                                si1.Append(S3 + "new QField { " + "Name = \"" + aname + "\"" + ", Type = QType." + qaType + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + anameO + "\" },\n");
+                            }
+                            if (ats.Count > 0)
+                            {
+                                pu.Append("\n");
+                                fb.Append("\n");
+                                fx.Append("\n");
+                                tx.Append("\n");
+                            }
                         }
 
 
@@ -446,7 +449,7 @@ namespace " + namesp + @".AF.Kps
                         using (StreamWriter sw = new StreamWriter(path, false, Encoding.UTF8))
                             sw.Write(sb.ToString().Substring(sb.ToString().IndexOf("using ")));
                     }
-                    catch(Exception)
+                    catch (Exception)
                     {
                         if (j == 9)
                             throw;
@@ -533,7 +536,7 @@ namespace " + namesp + @".AF.Kps
                     XmlSchemaElement elem = subParticle as XmlSchemaElement;
                     if (ignoredNames.ContainsKey(elem.QualifiedName.Name))
                         continue;
-                    
+
                     if (ignoredNames2.ContainsKey(elem.QualifiedName.Name))
                     {
                         pu.Append(S + "//dublicate: " + elem.QualifiedName.Name + "\n");
@@ -821,7 +824,7 @@ namespace " + namesp + @".AF.Kps
                             enameF = uniqueName(enameF, fldList);
                             if (_opt.ExactDBNames)
                                 enameF = ename;
-                            si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") +", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + cmt + "\" },\n");
+                            si1.Append(S3 + "new QField { " + (enameF.ToLower() == ename.ToLower() ? "Name = \"" + ename + "\"" : "Name = \"" + enameF + "\", NameCs = \"" + ename + "\"") + ", Type = QType." + qType + (maxLen != -1 ? ", Size = " + maxLen : "") + ", Prefix = " + (_opt.ExactDBNames ? "prefix" : "prf") + ", Comment = (comment != null ? comment + \": \" : \"\") + " + "\"" + cmt + "\" },\n");
                             pu.Append(S + "public " + baseType + " " + ename + " { get; set; } //");
                             wasLong = false;
                             wasLongB = false;
@@ -902,7 +905,7 @@ namespace " + namesp + @".AF.Kps
 
         private string className(XmlSchemaType type)
         {
-            var prefix = ""; 
+            var prefix = "";
             if (complexTypesPrefix.ContainsKey(type))
                 prefix = complexTypesPrefix[type] ?? "";
 

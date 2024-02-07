@@ -22,6 +22,7 @@ namespace ClassGenerator
                 opt.IsXml = false;
                 opt.StoreDB = false;
                 opt.ReadDB = false;
+                opt.UseAttributes = true;
                 
                 opt.StoreDBPrefix = "a";
                 opt.CSharpNamespace = "SampleService";
